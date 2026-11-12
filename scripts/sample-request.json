@@ -1,0 +1,4 @@
+{
+  "threadId": "curl-test",
+  "messages": [{ "role": "user", "content": "Where did my money go this month?" }]
+}

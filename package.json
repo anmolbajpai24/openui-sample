@@ -8,7 +8,9 @@
     "start": "next start",
     "lint": "eslint",
     "agent": "tsx --env-file=.env.local scripts/try-agent.ts",
-    "spec": "openui generate src/library.ts --spec --out src/generated/spec.json"
+    "spec": "openui generate src/library.ts --spec --out src/generated/spec.json",
+    "predev": "npm run spec",
+    "preagent": "npm run spec"
   },
   "dependencies": {
     "@openai/agents": "0.21.0",
