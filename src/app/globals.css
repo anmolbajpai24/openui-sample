@@ -1,23 +1,19 @@
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+/* OpenUI's styles for the chat screen and the built-in components. */
+@import "@openuidev/react-ui/styles/index.css";
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-    color-scheme: dark;
-  }
+html,
+body {
+  margin: 0;
 }
 
 body {
-  margin: 0;
-  color: var(--foreground);
-  background: var(--background);
-  font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
+  font-family: var(--font-geist-sans), system-ui, sans-serif;
 }
 
-main {
-  padding: 48px 24px;
+/* Make the chat fill the whole window. */
+.app-shell {
+  height: 100vh;
+  overflow: hidden;
+  position: relative;
+  width: 100vw;
 }

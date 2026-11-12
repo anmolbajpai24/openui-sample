@@ -1,13 +1,40 @@
 /**
  * page.tsx
- * What: a placeholder home page.
- * Why: the chat UI is built in step 4. Until then this keeps the app runnable.
+ * What: the chat screen. AgentInterface is OpenUI's ready-made chat UI. It
+ * sends the conversation to /api/chat and draws the agent's reply as live
+ * components while it streams in.
+ * Why: this is the only frontend code the tutorial needs.
  */
-export default function Home() {
+"use client";
+
+import { AgentInterface, agUIAdapter, fetchLLM, useSystemThemeMode } from "@openuidev/react-ui";
+import { openuiLibrary } from "@openuidev/react-ui/genui-lib";
+
+// How the chat screen talks to our server: POST the conversation to
+// /api/chat, then read the reply as AG-UI events.
+const llm = fetchLLM({
+  url: "/api/chat",
+  streamAdapter: agUIAdapter(),
+});
+
+export default function Page() {
+  // Follow the user's light or dark system theme.
+  const mode = useSystemThemeMode();
+
   return (
-    <main>
-      <h1>Budget Buddy</h1>
-      <p>Chat UI coming in step 4</p>
-    </main>
+    <div className="app-shell">
+      <AgentInterface
+        llm={llm}
+        componentLibrary={openuiLibrary}
+        agentName="Budget Buddy"
+        theme={{ mode }}
+        starterVariant="short"
+        starters={[
+          { displayText: "Where did my money go?", prompt: "Where did my money go this month?" },
+          { displayText: "Dining spend", prompt: "How much did I spend on dining?" },
+          { displayText: "Biggest expenses", prompt: "What were my three biggest expenses?" },
+        ]}
+      />
+    </div>
   );
 }
