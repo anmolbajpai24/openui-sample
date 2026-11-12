@@ -99,6 +99,24 @@ const getTransactions = tool({
   },
 });
 
+const getBudgets = tool({
+  name: "get_budgets",
+  description: "Get the monthly budget limit for each category that has one.",
+  parameters: z.object({}),
+  execute: async () => {
+    console.log("\n[tool] get_budgets()\n");
+
+    return {
+      currency: "USD",
+      budgets: [
+        { category: "groceries", limit: 300 },
+        { category: "dining", limit: 120 },
+        { category: "shopping", limit: 150 },
+      ],
+    };
+  },
+});
+
 // ---------------------------------------------------------------------------
 // 4. The instructions. Two parts:
 //    - a description of our component library (made by `npm run spec`,
@@ -118,6 +136,7 @@ const budgetBuddyRules = `
 You are Budget Buddy. You help people understand their spending.
 - Always call get_transactions before answering a question about spending.
 - Only use numbers that come from get_transactions. Never make up transactions or amounts.
+- Don't calculate new numbers yourself. Show only numbers the tool returned.
 - Show breakdowns as a chart and lists of transactions as a table.
 - End every answer with a few buttons for useful next steps, such as "Show me dining".
 `;
@@ -137,5 +156,5 @@ export const budgetBuddy = new Agent({
   instructions,
   // Any model Gateway offers. This free one has a daily request limit.
   model: "google/gemini-3.6-flash-free",
-  tools: [getTransactions],
+  tools: [getTransactions, getBudgets],
 });

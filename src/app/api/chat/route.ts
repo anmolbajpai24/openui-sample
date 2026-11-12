@@ -10,6 +10,7 @@
  *   curl -N http://localhost:3000/api/chat -H "Content-Type: application/json" -d "@scripts/sample-request.json"
  */
 import { assistant, run, user } from "@openai/agents";
+import { parseMessage } from "@openuidev/lang-core";
 import { budgetBuddy } from "@/agent";
 
 // One chat message, the way the chat screen sends it.
@@ -21,19 +22,20 @@ export async function POST(request: Request) {
   const runId = crypto.randomUUID();
   const messageId = crypto.randomUUID();
 
-  // Print the newest message, so you can watch a button click arrive
-  // as an ordinary user message.
-  const newest = messages[messages.length - 1];
-  if (newest) console.log(`\n[turn] ${newest.content}\n`);
-
   // 1. Convert the browser's messages into the shape the Agents SDK expects.
   //    The browser sends the whole conversation every time, because the
   //    server remembers nothing between requests.
+  //    OpenUI stores each message with marker lines that start with
+  //    "]]>openui:". The model must never see those, so parseMessage pulls
+  //    out the parts: a reply's content, and for a user message also its
+  //    context, such as the values of a submitted form.
   const conversation = messages
     .filter((message) => message.role === "user" || message.role === "assistant")
-    .map((message) =>
-      message.role === "user" ? user(message.content) : assistant(message.content),
-    );
+    .map((message) => {
+      const { content, context } = parseMessage(message.content);
+      if (message.role === "assistant") return assistant(content);
+      return user(context ? `${content}\n\nContext: ${JSON.stringify(context)}` : content);
+    });
 
   const encoder = new TextEncoder();
 
