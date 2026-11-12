@@ -1,19 +1,11 @@
-/* OpenUI's styles for the chat screen and the built-in components. */
+/*
+ * globals.css
+ * What: loads OpenUI's styles for the chat screen and the built-in components.
+ * Why: without this import the chat renders unstyled.
+ */
 @import "@openuidev/react-ui/styles/index.css";
 
-html,
+/* Remove the browser's default page margin so the chat fills the window. */
 body {
   margin: 0;
-}
-
-body {
-  font-family: var(--font-geist-sans), system-ui, sans-serif;
-}
-
-/* Make the chat fill the whole window. */
-.app-shell {
-  height: 100vh;
-  overflow: hidden;
-  position: relative;
-  width: 100vw;
 }

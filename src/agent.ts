@@ -1,8 +1,8 @@
 /**
  * agent.ts
  * What: defines our one agent, "Budget Buddy", and its one tool.
- * Why: the terminal script (steps 1-2) and the /api/chat route (step 3)
- * both import this same agent, so there is exactly one place to change it.
+ * Why: the terminal script and the /api/chat route both import this same
+ * agent, so there is exactly one place to change it.
  */
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -12,9 +12,14 @@ import { generateSystemPrompt, type LibrarySpec, type PromptOptions } from "@ope
 import { z } from "zod";
 
 // ---------------------------------------------------------------------------
-// 0. Connect to OpenUI Gateway. Every model request goes to Gateway instead
+// 1. Connect to OpenUI Gateway. Every model request goes to Gateway instead
 //    of straight to OpenAI. This is the snippet from the Thesys console.
 // ---------------------------------------------------------------------------
+// Stop early with a clear message if the key is missing.
+if (!process.env.THESYS_API_KEY) {
+  throw new Error("THESYS_API_KEY is missing. Copy .env.example to .env.local and add your key.");
+}
+
 setDefaultOpenAIClient(
   new OpenAI({
     baseURL: "https://api.thesys.dev/v1/embed",
@@ -27,9 +32,18 @@ setDefaultOpenAIClient(
 setTracingDisabled(true);
 
 // ---------------------------------------------------------------------------
-// 1. Mock data: one month of spending. Swap this for a real database later.
+// 2. Mock data: one month of spending. Swap this for a real database later.
 // ---------------------------------------------------------------------------
-const CATEGORIES = ["rent", "groceries", "dining", "transport", "utilities", "subscriptions", "shopping"] as const;
+// "as const" keeps these as exact strings, which z.enum needs.
+const CATEGORIES = [
+  "rent",
+  "groceries",
+  "dining",
+  "transport",
+  "utilities",
+  "subscriptions",
+  "shopping",
+] as const;
 
 const transactions = [
   { date: "2026-10-01", description: "Rent", category: "rent", amount: 1200.0 },
@@ -49,10 +63,13 @@ const transactions = [
   { date: "2026-10-27", description: "Lunch with team", category: "dining", amount: 27.8 },
 ];
 
-const round = (n: number) => Math.round(n * 100) / 100;
+// Add up amounts, rounded to cents. JavaScript decimals drift:
+// 74.3 + 49.99 gives 124.28999999999999, not 124.29.
+const sumAmounts = (items: { amount: number }[]) =>
+  Math.round(items.reduce((sum, item) => sum + item.amount, 0) * 100) / 100;
 
 // ---------------------------------------------------------------------------
-// 2. The tool: the model calls this when it needs numbers.
+// 3. The tool: the model calls this when it needs numbers.
 //    We do the maths here in code, so the model never has to add things up.
 // ---------------------------------------------------------------------------
 const getTransactions = tool({
@@ -65,17 +82,17 @@ const getTransactions = tool({
   execute: async ({ category }) => {
     console.log(`\n[tool] get_transactions(${category ?? "all"})\n`);
 
-    const items = category ? transactions.filter((t) => t.category === category) : transactions;
+    const items = category ? transactions.filter((item) => item.category === category) : transactions;
 
-    const totalsByCategory = CATEGORIES.map((c) => ({
-      category: c,
-      total: round(items.filter((t) => t.category === c).reduce((sum, t) => sum + t.amount, 0)),
-    })).filter((c) => c.total > 0);
+    const totalsByCategory = CATEGORIES.map((name) => ({
+      category: name,
+      total: sumAmounts(items.filter((item) => item.category === name)),
+    })).filter((row) => row.total > 0);
 
     return {
       month: "October 2026",
       currency: "USD",
-      total: round(items.reduce((sum, t) => sum + t.amount, 0)),
+      total: sumAmounts(items),
       totalsByCategory,
       transactions: items,
     };
@@ -83,12 +100,15 @@ const getTransactions = tool({
 });
 
 // ---------------------------------------------------------------------------
-// 3. The instructions. Two parts:
-//    - a description of our component library (made by `npm run spec`).
-//      Gateway reads it, writes the OpenUI Lang manual for the model, and
-//      checks the model's output against it.
+// 4. The instructions. Two parts:
+//    - a description of our component library (made by `npm run spec`,
+//      which also runs by itself before dev, build and agent, and takes a
+//      while). Gateway reads it, writes the OpenUI Lang manual for the
+//      model, and checks the model's output against it.
 //    - our own rules for Budget Buddy.
 // ---------------------------------------------------------------------------
+// spec.json holds the library description plus its prompt options.
+// generateSystemPrompt takes the two separately, so split them here.
 const { promptOptions, ...library } = JSON.parse(
   readFileSync(join(process.cwd(), "src/generated/spec.json"), "utf8"),
 ) as LibrarySpec & { promptOptions?: PromptOptions };
@@ -103,18 +123,19 @@ You are Budget Buddy. You help people understand their spending.
 `;
 
 const instructions = generateSystemPrompt({
-  cloud: true,
+  cloud: true, // Gateway writes the manual. Without this it is written here, locally.
   library,
   promptOptions,
   instructions: budgetBuddyRules,
 });
 
 // ---------------------------------------------------------------------------
-// 4. The agent itself.
+// 5. The agent itself.
 // ---------------------------------------------------------------------------
 export const budgetBuddy = new Agent({
   name: "Budget Buddy",
   instructions,
+  // Any model Gateway offers. This free one has a daily request limit.
   model: "google/gemini-3.6-flash-free",
   tools: [getTransactions],
 });
