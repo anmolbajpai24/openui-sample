@@ -6,19 +6,31 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "agent": "tsx --env-file=.env.local scripts/try-agent.ts",
+    "spec": "openui generate src/library.ts --spec --out src/generated/spec.json"
   },
   "dependencies": {
+    "@openai/agents": "0.21.0",
+    "@openuidev/lang-core": "1.1.0",
+    "@openuidev/react-headless": "0.18.5",
+    "@openuidev/react-lang": "1.1.0",
+    "@openuidev/react-ui": "0.18.5",
     "next": "16.4.5",
+    "openai": "7.53.0",
     "react": "19.3.0",
-    "react-dom": "19.3.0"
+    "react-dom": "19.3.0",
+    "zod": "4.6.7",
+    "zustand": "4.5.7"
   },
   "devDependencies": {
+    "@openuidev/cli": "0.6.3",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.4.5",
+    "tsx": "4.23.15",
     "typescript": "^5"
   }
 }
