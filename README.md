@@ -2,13 +2,36 @@
 
 Budget Buddy is a chat agent that answers questions about a month of spending with charts and tables instead of paragraphs. This repo is a small, commented example of how to connect the [OpenAI Agents SDK](https://openai.github.io/openai-agents-js/) to [OpenUI](https://www.openui.com/docs/build-agents/how-it-works).
 
-<!-- VIDEO LINK -->
+Video Demo - https://youtu.be/37ue1b0HlzY
+
+## QuickStart
+
+About 5 minutes, if you already have Node.js 22 or newer. You also need a free Thesys API key from <https://console.thesys.dev/keys>.
+
+```bash
+git clone https://github.com/anmolbajpai24/openui-sample.git
+cd openui-sample
+npm install
+cp .env.example .env.local
+npm run dev
+```
+
+Put your key in `.env.local` before the last command. Then open <http://localhost:3000> and click "Where did my money go?". [Setup](#setup) has the same steps in more detail.
 
 ## What you'll build
 
 ![Budget Buddy answers "Where did my money go?" with a chart and a table, then answers a button click](docs/demo.gif)
 
 You ask where your money went. The agent looks up the transactions with a tool and replies with a summary, a chart, a table and a row of buttons.
+
+## Starting point and what's new
+
+The structure of this repo is based on the official [google-adk example](https://github.com/thesysdev/openui/tree/main/examples/agent-frameworks/google-adk) in [thesysdev/openui](https://github.com/thesysdev/openui). These parts are new:
+
+- The Agents SDK bridge. [`src/app/api/chat/route.ts`](src/app/api/chat/route.ts) turns the Agents SDK's text stream into AG-UI events.
+- `parseMessage` on the full history. Every user and assistant message in the conversation goes through `parseMessage`, so OpenUI's marker lines never reach the model.
+- The Budget Buddy tools. `get_transactions` in [`src/agent.ts`](src/agent.ts) adds up the totals in code. [Add a tool](#add-a-tool) adds a second one, `get_budgets`.
+- The terminal and curl harness. `npm run agent` and [`scripts/sample-request.json`](scripts/sample-request.json) test the agent and the route without the browser.
 
 ## Prerequisites
 
@@ -200,45 +223,31 @@ The browser needs the React components, but the server only needs a description 
 
 ### 3. `src/app/api/chat/route.ts`: the bridge
 
-The Agents SDK produces a stream of plain text, and OpenUI's chat screen reads AG-UI events. This file turns one into the other. OpenUI ships adapters for several stream formats but none for the Agents SDK. For that case its docs [give a pattern](https://www.openui.com/docs/agent/reference/self-hosting): translate to AG-UI on the server and read the events with `agUIAdapter()` in the browser. This route does that in 90 lines.
+The Agents SDK produces a stream of plain text, and OpenUI's chat screen reads AG-UI events. This file turns one into the other. OpenUI ships adapters for several stream formats but none for the Agents SDK. For that case its docs [give a pattern](https://www.openui.com/docs/agent/reference/self-hosting): translate to AG-UI on the server and read the events with `agUIAdapter()` in the browser. This route does that in about 100 lines. The steps below are the numbered comments in [`src/app/api/chat/route.ts`](src/app/api/chat/route.ts).
 
-The chat screen stores every message with marker lines that start with `]]>openui:`. OpenUI's [message format page](https://www.openui.com/docs/openui-lang/message-protocol) says the model must never see those lines. Step 1 takes them out with `parseMessage` while it converts the browser's messages with the SDK's `user()` and `assistant()` helpers:
+The chat screen stores every message with marker lines that start with `]]>openui:`. OpenUI's [message format page](https://www.openui.com/docs/openui-lang/message-protocol) says the model must never see those lines. Step 1 takes them out with `parseMessage` while it converts each of the browser's messages with the SDK's `user()` and `assistant()` helpers:
 
 ```ts
-  const conversation = messages
-    .filter((message) => message.role === "user" || message.role === "assistant")
-    .map((message) => {
       const { content, context } = parseMessage(message.content);
       if (message.role === "assistant") return assistant(content);
       return user(context ? `${content}\n\nContext: ${JSON.stringify(context)}` : content);
-    });
 ```
 
 A reply goes back to the model as its content only. A user message also carries its context as plain text, such as the values of a submitted form.
 
-The main part runs the agent in streaming mode and wraps each piece of text in an event. `send` writes each event to the browser as one `data:` line:
+Step 3 runs the agent in streaming mode with `run(budgetBuddy, conversation, ...)`. Step 4 wraps each piece of text in an event. `send` writes each event to the browser as one `data:` line:
 
 ```ts
-        send({ type: "RUN_STARTED", threadId, runId });
-
-        // 3. Run the agent in streaming mode.
-        const result = await run(budgetBuddy, conversation, {
-          stream: true,
-          signal: request.signal,
-        });
-
-        // 4. Wrap each piece of text in an AG-UI event and send it on.
         send({ type: "TEXT_MESSAGE_START", messageId, role: "assistant" });
         for await (const delta of result.toTextStream()) {
           send({ type: "TEXT_MESSAGE_CONTENT", messageId, delta });
         }
         send({ type: "TEXT_MESSAGE_END", messageId });
-
-        send({ type: "RUN_FINISHED", threadId, runId });
 ```
 
-A few things to notice in that excerpt:
+A few things to notice in the file:
 
+- A request body that is not JSON, or has no `messages` array, gets a 400 response with a JSON error before any of this runs.
 - `run()` handles the whole tool loop. Both model calls and the tool call happen inside it.
 - `toTextStream()` yields only the model's text, which is why the browser shows "Working" while the tool runs.
 - `signal: request.signal` stops the run when the user presses stop or closes the tab.
@@ -298,8 +307,6 @@ const llm = fetchLLM({
 The only other frontend code is the line in `src/app/globals.css` that imports OpenUI's styles.
 
 ## How to extend it
-
-The first two changes were tested together in a copy of this repo. The other three are pointers.
 
 ### Add a tool
 
@@ -408,6 +415,36 @@ Restart `npm run dev` so the spec is regenerated. In a test run, the question "A
 ### Use a different model
 
 Change the `model` string at the bottom of `src/agent.ts` to a full ID from the [Gateway models page](https://www.openui.com/cloud/gateway/models), including the part before the slash. Models that aren't free are billed per token. This repo has only been tested on the free one.
+
+### Using your own OpenAI key (no Gateway)
+
+Gateway is optional. To call OpenAI directly, put `OPENAI_API_KEY` in `.env.local` and make three changes in `src/agent.ts`.
+
+In section 1, check `OPENAI_API_KEY` instead of `THESYS_API_KEY` and point the client at OpenAI:
+
+```ts
+setDefaultOpenAIClient(
+  new OpenAI({
+    baseURL: "https://api.openai.com/v1",
+    apiKey: process.env.OPENAI_API_KEY,
+  }),
+);
+```
+
+Build the instructions with `cloud: false`, so the OpenUI Lang manual is written on your server instead of by Gateway. The `instructions` option only works with `cloud: true`, so add the rules yourself:
+
+```ts
+const instructions =
+  generateSystemPrompt({ cloud: false, library, promptOptions }) + budgetBuddyRules;
+```
+
+At the bottom of the file, use an OpenAI model. This one is the default in version 0.21.0 of the Agents SDK:
+
+```ts
+  model: "gpt-5.6-luna",
+```
+
+The trade-off: you no longer need a Thesys account, and one less service sits between your code and the model. You lose the free model, because OpenAI bills per token. You also lose Gateway's check of each reply, so a slip like the one in step 1 of the walkthrough reaches the browser as the model wrote it.
 
 ### Show tool activity in the chat
 

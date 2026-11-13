@@ -99,24 +99,6 @@ const getTransactions = tool({
   },
 });
 
-const getBudgets = tool({
-  name: "get_budgets",
-  description: "Get the monthly budget limit for each category that has one.",
-  parameters: z.object({}),
-  execute: async () => {
-    console.log("\n[tool] get_budgets()\n");
-
-    return {
-      currency: "USD",
-      budgets: [
-        { category: "groceries", limit: 300 },
-        { category: "dining", limit: 120 },
-        { category: "shopping", limit: 150 },
-      ],
-    };
-  },
-});
-
 // ---------------------------------------------------------------------------
 // 4. The instructions. Two parts:
 //    - a description of our component library (made by `npm run spec`,
@@ -156,5 +138,5 @@ export const budgetBuddy = new Agent({
   instructions,
   // Any model Gateway offers. This free one has a daily request limit.
   model: "google/gemini-3.6-flash-free",
-  tools: [getTransactions, getBudgets],
+  tools: [getTransactions],
 });

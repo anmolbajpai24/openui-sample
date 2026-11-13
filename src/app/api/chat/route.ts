@@ -17,8 +17,17 @@ import { budgetBuddy } from "@/agent";
 type ChatMessage = { role: string; content: string };
 
 export async function POST(request: Request) {
-  const { messages, threadId }: { messages: ChatMessage[]; threadId: string } =
-    await request.json();
+  // Check the request before doing anything else. A body that is not JSON,
+  // or that has no "messages" list, gets a clear 400 instead of a crash.
+  const body = await request.json().catch(() => null);
+  if (!Array.isArray(body?.messages)) {
+    return Response.json(
+      { error: 'The request body must be JSON with a "messages" array, like scripts/sample-request.json.' },
+      { status: 400 },
+    );
+  }
+
+  const { messages, threadId }: { messages: ChatMessage[]; threadId: string } = body;
   const runId = crypto.randomUUID();
   const messageId = crypto.randomUUID();
 
